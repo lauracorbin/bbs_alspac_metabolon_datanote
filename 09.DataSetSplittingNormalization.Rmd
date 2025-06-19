@@ -1,0 +1,294 @@
+---
+title: "Data Set Splitting"
+author: "David Hughes"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(patchwork)
+```
+
+## A function to simulate data 
+
+  - This function will simulate a random normal distribution of size N (sample population size).
+  - It will randomly assign individuals to a batch.
+  - It will return an individuals rank within the simulated data.
+  - It will perform median normalization within batches (in reality and unecessary step - so this is just making noise).
+  - It will them return an individuals rank with in the batch normalized data.
+  - It will then simulate a batch effect introducing a random batch effect with error to all individuals within a batch.
+  - It will return an individuals rank as defined by the batch effects
+  - It will median normalize by batch, the batch effect data.
+  - Finally, it will return the rank of individuals after median normalizing the batch effect data. 
+
+## What if the data is derived from a single distribution but I break it into batches and median normalize it.
+
+```{r}
+simdata_v2 = function(sampop_n = 2160, batchsize = 36){
+  ## The sample population of 2160 individuals
+  x = rnorm(sampop_n, 10, 1)
+  ## randomly assign individuals to 1 of 60 batches
+  batches = sample( rep(1:60, batchsize) )
+  ## Identify sample population rank
+  r = rank(x)
+  ## Build data frame
+  df = data.frame(pheno = x, batch = batches, sample_pop_rank = r)
+  
+  ## Median Normalize by batch
+  df = df %>% group_by(batch) %>% 
+    mutate( norm_pheno = pheno/median(pheno)) %>%
+    ungroup()
+  
+  ## Identify the new ranks
+  df = df %>% mutate( norm_rank = rank(norm_pheno) )
+  
+  ## Introduce a batch effect to each batch
+  df = df %>% group_by(batch) %>%
+    mutate( batch_effect_pheno = pheno + rnorm(batchsize, runif(1,-5,5), sd = 0.5) ) %>%
+    ungroup()
+
+  ## What are the ranks after introducing a batch effect?
+  df = df %>% mutate( batch_effect_rank = rank(batch_effect_pheno) )
+  
+  ## Median Normalize the batch_effect_pheno by batch
+  df = df %>% group_by(batch) %>% 
+    mutate( norm_batch_effect_pheno = batch_effect_pheno/median(batch_effect_pheno)) %>%
+    ungroup()
+  
+  ## Identify the new ranks
+  df = df %>% mutate( norm_batch_effect_rank = rank(norm_batch_effect_pheno) )
+  
+  
+  return(df)
+    
+}
+```
+
+## A simulation of the study data randomly placed into batches and median normalized
+
+```{r, fig.width = 14, fig.height = 6}
+df = simdata_v2()
+
+## PLOT 1
+p1 = df %>% ggplot( aes(x = sample_pop_rank, y = norm_rank) ) +
+  geom_point() + 
+  geom_smooth(method = lm, formula = y ~ x, linewidth = 3 ) +
+  labs(x = "simulated rank", y = "batch normalized rank", title = "ranks") +
+  theme_bw()
+
+
+## PLOT 2
+a = cor.test(df$pheno, df$norm_pheno)
+anno = paste0("Pearson's r = \n", round( a$estimate, d = 2 ) )
+
+p2 = df %>% ggplot(aes(x = pheno, y = norm_pheno)) +
+  geom_point() + 
+  geom_smooth(method = lm, formula = y ~ x, linewidth = 3 ) +
+  annotate("text", x = 11, y = 0.8, label = anno) +
+  labs(x = "simulated data", y = "batch normalized data", title = "phenotype data") +
+  theme_bw()
+
+
+## PLOT figures
+p2 | p1
+```
+
+
+## What happens if batches are smaller just like with ALSPAC and we still median normalize
+
+```{r, fig.width = 14, fig.height = 6}
+df = simdata_v2(sampop_n = 540, batchsize = 9)
+
+## PLOT 1
+p1 = df %>% ggplot( aes(x = sample_pop_rank, y = norm_rank) ) +
+  geom_point() + 
+  geom_smooth(method = lm, formula = y ~ x, linewidth = 3 ) +
+  labs(x = "simulated rank", y = "batch normalized rank", title = "ranks") +
+  theme_bw()
+
+
+## PLOT 2
+a = cor.test(df$pheno, df$norm_pheno)
+anno = paste0("Pearson's r = \n", round( a$estimate, d = 2 ) )
+
+p2 = df %>% ggplot(aes(x = pheno, y = norm_pheno)) +
+  geom_point() + 
+  geom_smooth(method = lm, formula = y ~ x, linewidth = 3 ) +
+  annotate("text", x = 11, y = 0.8, label = anno) +
+  labs(x = "simulated data", y = "batch normalized data", title = "phenotype data") +
+  theme_bw()
+
+
+## PLOT figures
+p2 | p1
+```
+
+
+## What happens if batches are smaller just like with ALSPAC but we median normalize with all the data, subsampling our substudy from the full data set after median normaliztion.
+
+
+```{r, fig.width = 14, fig.height = 6}
+df = simdata_v2()
+
+## sample 9 samples from each batch of data
+s = c()
+for(i in sort( unique(df$batch) )){ s = c(s, sample( which(df$batch == i), 9 ) )}
+df = df[s,]
+
+## PLOT 1
+p1 = df %>% ggplot( aes(x = sample_pop_rank, y = norm_rank) ) +
+  geom_point() + 
+  geom_smooth(method = lm, formula = y ~ x, linewidth = 3 ) +
+  labs(x = "simulated rank", y = "batch normalized rank", title = "ranks") +
+  theme_bw()
+
+
+## PLOT 2
+a = cor.test(df$pheno, df$norm_pheno)
+anno = paste0("Pearson's r = \n", round( a$estimate, d = 2 ) )
+
+p2 = df %>% ggplot(aes(x = pheno, y = norm_pheno)) +
+  geom_point() + 
+  geom_smooth(method = lm, formula = y ~ x, linewidth = 3 ) +
+  annotate("text", x = 11, y = 0.8, label = anno) +
+  labs(x = "simulated data", y = "batch normalized data", title = "phenotype data") +
+  theme_bw()
+
+
+## PLOT figures
+p2 | p1
+```
+
+
+## Lets simluate sub-setting effect size
+
+```{r}
+sims = c()
+for(i in 1:100){
+  o = t( sapply(2:36, function(i){
+  b = 60
+  n = b * i
+  df = simdata_v2(sampop_n = n, batchsize = i)
+  a = cor.test(df$pheno, df$norm_pheno)$estimate
+  out = c(b, n, i, a)
+  names(out) = c("batch_count","n","batch_size","Persons_r")
+  return(out)
+  }) )
+  sims = rbind(sims, o)
+}
+sims = as.data.frame(sims)
+```
+
+```{r}
+ss = sims %>% group_by(batch_size) %>% summarize( mean_r = mean(Persons_r), 
+                                             lowerCI = quantile(Persons_r, probs = 0.025),
+                                             upperCI = quantile(Persons_r, probs = 0.975) )
+
+ss %>% ggplot(aes(x = batch_size, y = mean_r)) +
+  geom_vline(xintercept = 9, linetype = "dashed", color = "blue") +
+  geom_line( color = "grey30") +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin=lowerCI, ymax=upperCI), colour="black", width=.1) +
+  theme_bw() + 
+  labs(x = "batch size", y = "Pearson's r")
+```
+
+
+
+
+## What happens if we simulate batch effects
+
+```{r, fig.width = 14, fig.height = 6}
+df = simdata_v2()
+
+## PLOT 1
+p1 = df %>% ggplot( aes(x = sample_pop_rank, y = batch_effect_rank) ) +
+  geom_point() + 
+  geom_smooth(method = lm, formula = y ~ x, linewidth = 3 ) +
+  labs(x = "simulated rank", y = "batch effect ranks", title = "ranks") +
+  theme_bw()
+
+
+## PLOT 2
+a = cor.test(df$pheno, df$batch_effect_pheno)
+anno = paste0("Pearson's r = \n", round( a$estimate, d = 2 ) )
+
+p2 = df %>% ggplot(aes(x = pheno, y = batch_effect_pheno)) +
+  geom_point() + 
+  geom_smooth(method = lm, formula = y ~ x, linewidth = 3 ) +
+  annotate("text", x = 13, y = 4, label = anno) +
+  labs(x = "simulated data", y = "batch effect data", title = "phenotype data") +
+  theme_bw()
+
+
+## PLOT figures
+p2 | p1
+```
+
+
+## What happens if we simulate batch effects
+
+```{r, fig.width = 14, fig.height = 6}
+df = simdata_v2()
+
+## PLOT 1
+p1 = df %>% ggplot( aes(x = sample_pop_rank, y = norm_batch_effect_rank) ) +
+  geom_point() + 
+  geom_smooth(method = lm, formula = y ~ x, linewidth = 3 ) +
+  labs(x = "simulated rank", y = "normalized batch effect ranks", title = "ranks") +
+  theme_bw()
+
+
+## PLOT 2
+a = cor.test(df$pheno, df$norm_batch_effect_pheno)
+anno = paste0("Pearson's r = \n", round( a$estimate, d = 2 ) )
+
+p2 = df %>% ggplot(aes(x = pheno, y = norm_batch_effect_pheno)) +
+  geom_point() + 
+  geom_smooth(method = lm, formula = y ~ x, linewidth = 3 ) +
+  annotate("text", x = 12, y = 0.75, label = anno) +
+  labs(x = "simulated data", y = "normalized batch effect data", title = "phenotype data") +
+  theme_bw()
+
+
+## PLOT figures
+p2 | p1
+```
+
+
+## Lets simluate sub-setting effect size with batch effects
+
+```{r}
+sims = c()
+for(i in 1:100){
+  o = t( sapply(2:36, function(i){
+  b = 60
+  n = b * i
+  df = simdata_v2(sampop_n = n, batchsize = i)
+  a = cor.test(df$pheno, df$norm_batch_effect_pheno)$estimate
+  out = c(b, n, i, a)
+  names(out) = c("batch_count","n","batch_size","Persons_r")
+  return(out)
+  }) )
+  sims = rbind(sims, o)
+}
+sims = as.data.frame(sims)
+```
+
+```{r}
+ss = sims %>% group_by(batch_size) %>% summarize( mean_r = mean(Persons_r), 
+                                             lowerCI = quantile(Persons_r, probs = 0.025),
+                                             upperCI = quantile(Persons_r, probs = 0.975) )
+
+ss %>% ggplot(aes(x = batch_size, y = mean_r)) +
+  geom_vline(xintercept = 9, linetype = "dashed", color = "blue") +
+  geom_line( color = "grey30") +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin=lowerCI, ymax=upperCI), colour="black", width=.1) +
+  theme_bw() + 
+  labs(x = "batch size", y = "Pearson's r")
+```
+
+
+
+

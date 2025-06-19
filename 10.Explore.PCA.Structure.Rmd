@@ -1,0 +1,211 @@
+---
+title: "Exploring PCA Structure"
+author: "David Hughes"
+output: html_document
+---
+
+```{r}
+source("parameter_files/10.parameters.R")
+library(tidyverse)
+```
+
+
+## Load the data
+
+```{r}
+load(rdata_file)
+clindata = read.table(clin_file, header = TRUE, sep = ",", as.is = TRUE)
+```
+
+## Merge the data
+
+```{r}
+m = match(qc_data$sample_data[, "CLIENT_SAMPLE_ID"], clindata[,"Client.Sample.ID."])
+clindata_m = clindata[m,]
+```
+
+
+## Plot the PCA
+
+### Is there obvious structure by Source Study ?
+
+```{r, fig.width = 7, fig.height = 6}
+qc_data$sample_data %>% ggplot(aes(x = PC1, y = PC2)) +
+  geom_point( aes(color = SOURCE_STUDY) ) +
+  theme_bw()
+```
+
+#### How many of each source study are there?
+
+```{r}
+table(qc_data$sample_data$SOURCE_STUDY)
+```
+
+### run k-means on PC1 and PC2
+
+```{r}
+k = kmeans(qc_data$sample_data[, c("PC1","PC2")], centers = 2)
+qc_data$sample_data$k = as.factor( k$cluster )
+table(qc_data$sample_data$k)
+```
+
+#### Run a PCA with the k-means structure
+
+```{r, fig.width = 7, fig.height = 6}
+qc_data$sample_data %>% ggplot(aes(x = PC1, y = PC2)) +
+  geom_point( aes(color = as.factor(k) ) ) +
+  theme_bw()
+```
+
+There are ~141 outliers.
+
+
+#### Is there obvious structure by run platform?
+
+```{r, fig.width = 7, fig.height = 6}
+qc_data$sample_data %>% ggplot(aes(x = PC1, y = PC2)) +
+  geom_point( aes(color = as.factor(POLAR) ) ) +
+  theme_bw()
+```
+
+Run structure of box number and platform
+
+```{r}
+table( qc_data$sample_data$BOX_NUMBER, qc_data$sample_data$NEG )
+# table( qc_data$sample_data$BOX_NUMBER, qc_data$sample_data$polar )
+# table( qc_data$sample_data$BOX_NUMBER, qc_data$sample_data$posearly )
+# table( qc_data$sample_data$BOX_NUMBER, qc_data$sample_data$poslate )
+```
+
+## how many samples from each clinic ?
+
+```{r}
+# table( clindata$timepoint )
+# table( clindata$source_study )
+table( clindata$site )
+```
+
+
+#### Is there obvious structure by site ?
+
+```{r, fig.width = 7, fig.height = 6}
+
+qc_data$sample_data$site = as.factor(clindata_m$site)
+
+levels(qc_data$sample_data$site) <- c("G","C","I","J","K","D","L","H","A","B","F","ALSPAC")
+
+w = which(qc_data$sample_data$SOURCE_STUDY == "alspac")
+qc_data$sample_data$site[w] = "ALSPAC"
+qc_data$sample_data$site <- ordered(qc_data$sample_data$site, levels = c("A","B","C","D","F","G","H","I","J","K","L","ALSPAC"))
+###
+xl = paste0("PC1 (", round(qc_data$varexp[1,1] * 100,digits=1), "%)"  )
+yl = paste0("PC2 (", round(qc_data$varexp[2,1] * 100,digits=1), "%)"  )
+
+qc_data$sample_data %>% ggplot(aes(x = PC1, y = PC2)) +
+  geom_point( aes(fill = site ), shape = 21, size = 4, alpha = 0.7 ) +
+  theme_bw() +
+  labs(fill = "Site", x = xl, y = yl)
+ggsave(paste0(fig_dir,"Fig2_PC_structure.pdf"))
+```
+
+
+```{r}
+table(clindata_m$site, clindata_m$timepoint)
+```
+
+## Grab IDs for the siteG samples that are outliers
+
+```{r}
+outlier_data = qc_data$sample_data %>% filter(site == "G" & PC1 > 0  & PC2 < -5)
+#f = paste0(results_dir, "siteG_sample_outlier_anno.txt")
+#write.table(outlier_data, file = f, col.names = TRUE, row.names = TRUE, sep = "\t", quote = FALSE)
+```
+
+
+```{r}
+# site_timepoint = paste0(clindata_m$site, "_", clindata_m$timepoint)
+site_timepoint = sapply(1:nrow(clindata_m), function(i){
+  paste0(clindata_m$site[i], "_", clindata_m$timepoint[i])
+})
+w = grep("BIR", site_timepoint)
+site_timepoint[-w] = "other"
+qc_data$sample_data$site_timepoint = site_timepoint
+```
+
+
+```{r}
+qc_data$sample_data %>% arrange(desc(site_timepoint)) %>% ggplot(aes(x = PC1, y = PC2)) +
+  geom_point( aes(fill = as.factor(site_timepoint) ), shape = 21, size = 4, alpha = 0.7 ) +
+  theme_bw() +
+  labs(fill = "site_timepoint", x = xl, y = yl)
+```
+
+
+```{r}
+table(clindata_m$site, clindata_m$sex)
+```
+
+
+
+```{r}
+# site_timepoint = paste0(clindata_m$site, "_", clindata_m$timepoint)
+site_sex = sapply(1:nrow(clindata_m), function(i){
+  paste0(clindata_m$site[i], "_", clindata_m$sex[i])
+})
+w = grep("BIR", site_timepoint)
+site_sex[-w] = "other"
+qc_data$sample_data$site_sex = site_sex
+```
+
+
+```{r}
+qc_data$sample_data %>% arrange(desc(site_sex)) %>% ggplot(aes(x = PC1, y = PC2)) +
+  geom_point( aes(fill = as.factor(site_sex) ), shape = 21, size = 4, alpha = 0.7 ) +
+  theme_bw() +
+  labs(fill = "site_sex", x = xl, y = yl)
+```
+
+
+```{r, fig.height = 9, fig.width = 8}
+# names(qc_data)
+library(patchwork)
+##
+p1 =qc_data$sample_data %>% ggplot(aes(x = site, y = sample_missingness)) +
+  geom_boxplot(aes(fill = site)) + theme_bw()
+
+p2 = qc_data$sample_data %>% ggplot(aes(x = site, y = sample_missingness_w_exclusions)) +
+  geom_boxplot(aes(fill = site)) + theme_bw()
+
+p3 = qc_data$sample_data %>% ggplot(aes(x = site, y = TPA_total)) +
+  geom_boxplot(aes(fill = site)) + theme_bw()
+
+p4 = qc_data$sample_data %>% ggplot(aes(x = site, y = TPA_completefeature)) +
+  geom_boxplot(aes(fill = site)) + theme_bw()
+
+( p1 / p2 / p3 / p4 ) + plot_layout(guides = "collect")
+```
+
+
+
+```{r}
+year = sapply(clindata_m$visitdate, function(x){strsplit(x, split = "-")[[1]][1]})
+
+# site_timepoint = paste0(clindata_m$site, "_", clindata_m$timepoint)
+site_year = sapply(1:nrow(clindata_m), function(i){
+  paste0(clindata_m$site[i], "_", year[i])
+})
+w = grep("BIR", site_year)
+site_year[-w] = "other"
+qc_data$sample_data$site_year = site_year
+```
+
+
+```{r, fig.width = 7, fig.height = 6}
+qc_data$sample_data %>% arrange(desc(site_year)) %>% ggplot(aes(x = PC1, y = PC2)) +
+  geom_point( aes(fill = as.factor(site_year) ), shape = 21, size = 4, alpha = 0.7 ) +
+  scale_fill_brewer(palette = "Set1") +
+  theme_bw() +
+  labs(fill = "site_year", x = xl, y = yl)
+```
+
+

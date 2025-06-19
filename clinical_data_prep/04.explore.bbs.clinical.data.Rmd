@@ -1,0 +1,284 @@
+---
+title: "04a_explore_bbs_clinical_data"
+author: "Maddy"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+## read in parameter file
+# parameter file
+source("parameter_files/04.parameters.R")
+
+## set working directory
+setwd(working_dir)
+
+## load libraries
+library(tidyverse)
+library(plyr)
+library(gtsummary)
+library(data.table)
+```
+
+
+```{r read}
+bbs <- read.csv(paste0(data_output_dir, "03_sample_clinical_data_all_cols.csv"))
+bbs_all_wide <- read.csv(paste0(data_output_dir,"03_bbs_all_wide.csv"))
+
+# reduce the wide data to those that we have samples for (those in bbs)
+keep <- which(bbs_all_wide$studyid %in% bbs$studyid)
+
+bbs_wide <- bbs_all_wide[keep,]
+
+bbs_site <- bbs[,c("studyId","site")]
+bbs_site <- unique(bbs_site)
+bbs_wide_site <- merge(bbs_wide, bbs_site, by.y = "studyId", by.x = "studyid")
+```
+
+### Explore timings
+
+```{r explore_timings}
+hist(bbs_wide$baseline_to_end,breaks = 20)
+summary(bbs_wide$baseline_to_end)
+
+mu <- ddply(bbs_wide, "study", summarise, grp.mean=mean(baseline_to_end,na.rm=T))
+mu
+
+ggplot(bbs_wide, aes(x=baseline_to_end, color=study)) +
+  geom_histogram(fill="white", binwidth = 1)+
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=study),
+             linetype="dashed")+
+  theme(legend.position="right")
+
+
+# time between surgery and end sampling in months
+hist(bbs_wide$op_to_end,breaks = 20)
+summary(bbs_wide$op_to_end)
+
+mu <- ddply(bbs_wide, "study", summarise, grp.mean=mean(op_to_end,na.rm=T))
+mu
+
+ggplot(bbs_wide, aes(x=op_to_end, color=study)) +
+  geom_histogram(fill="white", binwidth = 1)+
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=study),
+             linetype="dashed")+
+  theme(legend.position="right")
+
+
+# time between baseline and surgery
+hist(bbs_wide$baseline_to_op,breaks = 20)
+summary(bbs_wide$baseline_to_op)
+
+mu <- ddply(bbs_wide, "study", summarise, grp.mean=mean(baseline_to_op,na.rm=T))
+mu
+
+ggplot(bbs_wide, aes(x=baseline_to_op, color=study)) +
+  geom_histogram(fill="white", binwidth = 1)+
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=study),
+             linetype="dashed")+
+  theme(legend.position="right")
+
+baseline <- bbs[which(bbs$timepoint=="Baseline"),]
+end <- bbs[which(bbs$timepoint=="end"),]
+table(baseline$study)
+table(end$study)
+
+```
+
+Explore timings in pairs
+
+``` {r pairs_only}
+baseline_sub <- baseline[which(baseline$study=="substudy"),]
+end_sub <- end[which(end$study=="substudy"),]
+length(which(baseline_sub$studyId %in% end_sub$studyId))
+
+baseline_main <- baseline[which(baseline$study=="main"),]
+end_main <- end[which(end$study=="main"),]
+length(which(baseline_main$studyId %in% end_main$studyId))
+
+w <- which(baseline$studyId %in% end$studyId)
+pairs <- baseline[w,"studyId"]
+bbs_wide_pairs <- bbs_wide_site[which(bbs_wide_site$studyid %in% pairs),]
+
+
+hist(as.numeric(bbs_wide_pairs$baseline_to_end),breaks = 20)
+summary(bbs_wide_pairs$baseline_to_end)
+
+mu <- ddply(bbs_wide_pairs, "study", summarise, grp.mean=mean(baseline_to_end,na.rm=T))
+mu
+
+ggplot(bbs_wide_pairs, aes(x=baseline_to_end, color=study)) +
+  geom_histogram(fill="white", binwidth = 1)+
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=study),
+             linetype="dashed")+
+  theme(legend.position="right")
+
+
+# time between surgery and end sampling in months
+hist(bbs_wide_pairs$op_to_end,breaks = 20)
+summary(bbs_wide_pairs$op_to_end)
+
+mu <- ddply(bbs_wide_pairs, "study", summarise, grp.mean=mean(op_to_end,na.rm=T))
+mu
+
+ggplot(bbs_wide_pairs, aes(x=op_to_end, color=study)) +
+  geom_histogram(fill="white", binwidth = 1)+
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=study),
+             linetype="dashed")+
+  theme(legend.position="right")
+
+
+# time between baseline and surgery
+hist(bbs_wide_pairs$baseline_to_op,breaks = 20)
+summary(bbs_wide_pairs$baseline_to_op)
+
+mu <- ddply(bbs_wide_pairs, "study", summarise, grp.mean=mean(baseline_to_op,na.rm=T))
+mu
+
+ggplot(bbs_wide_pairs, aes(x=baseline_to_op, color=study)) +
+  geom_histogram(fill="white", binwidth = 1)+
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=study),
+             linetype="dashed")+
+  theme(legend.position="right")
+```
+
+### Descriptive vars by study
+
+```{r descriptive_tables}
+## rename and collapse vars where necessary
+setnames(bbs_wide, old = c("sex", "age", "wgt_op_day", "wgt_end",
+                            "wgt_Baseline", "hba1c_Baseline", "bmikgm2_Baseline",
+                            "baseline_to_op", "bmikgm2_end","diabetes_duration",
+                            "baseline_to_end", "op_to_end", "ethnicity",
+                            "type2_diab_Baseline","hba1c_end"),
+         new = c("Sex", "Age (years)","Baseline weight (kg)", "Op day weight (kg)", "End weight (kg)",
+                 "Baseline HbA1c (mmol/mol)",
+                 "Baseline BMI (kg/m^2)", "Time between baseline sample collection and surgery (months)",
+                 "End BMI (kg/m^2)", "Diabetes duration",
+                 "Time between baseline and 36-month sample collection (months)",
+                 "Time between surgery and 36-month sample collection (months)",
+                 "Ethnicity",
+                 "Diabetes status", "End HbA1c (mmol/mol)"))
+
+## summarize the clinical data by study (main/substudy)
+vars <- c("Sex","Age (years)","Ethnicity", "Diabetes status", "Baseline weight (kg)", "Op day weight (kg)", "End weight (kg)",
+          "Baseline BMI (kg/m^2)","End BMI (kg/m^2)", "Diabetes duration","Time between baseline sample collection and surgery (months)",
+          "Time between baseline and 36-month sample collection (months)",
+          "Time between surgery and 36-month sample collection (months)","Baseline HbA1c (mmol/mol)","End HbA1c (mmol/mol)","study")
+
+# make categorical vars factors
+catvars <- c("Sex", "Diabetes status",
+             "Ethnicity")
+bbs_wide[,catvars] <- lapply(bbs_wide[,catvars], factor)
+
+# rename levels
+levels(bbs_wide$Sex) <- c("Male", "Female")
+levels(bbs_wide$Ethnicity) <- c("English/Welsh/Scottish/Northern Irish/British",
+                                 "Irish",
+                                 "Gypsy or Irish Traveller",
+                                 "Any other White background",
+                                 "White and Black Caribbean",
+                                 "White and Black African",
+                                 "White and Asian",
+                                 "Any other Mixed background",
+                                 "Indian",
+                                 "Pakistani",
+                                 "Bangladeshi",
+                                 "Chinese",
+                                 "Any other Asian background",
+                                 "African",
+                                 "Caribbean",
+                                 "Any other Black/African/Caribbean background",
+                                 "Arab",
+                                 "Any other ethnic group")
+levels(bbs_wide$`Diabetes status`) <- c("No indication","Glucose impairment","Oral hypoglycaemics",
+                                        "Insulin","GLP-1 agonist","Diet controlled")
+
+# collapse ethnicity var
+bbs_wide_collapsed <- bbs_wide
+bbs_wide_collapsed$Ethnicity <- fct_collapse(bbs_wide_collapsed$Ethnicity,
+                                              White = c("English/Welsh/Scottish/Northern Irish/British",
+                                                          "Irish",
+                                                          "Gypsy or Irish Traveller",
+                                                          "Any other White background"),
+                                              `Mixed/multiple ethnic groups` = c("White and Black Caribbean",
+                                                                                 "White and Black African",
+                                                                                 "White and Asian",
+                                                                                 "Any other Mixed background"),
+                                             `Asian/Asian British` = c("Indian",
+                                                                       "Pakistani",
+                                                                       "Bangladeshi",
+                                                                       "Chinese",
+                                                                       "Any other Asian background"),
+                                             `Black/African/Caribbean/Black British` = c("African",
+                                                                                         "Caribbean",
+                                                                                         "Any other Black/African/Caribbean background"),
+                                             Other = c("Arab",
+                                                       "Any other ethnic group"))
+
+table1 <- tbl_summary(bbs_wide_collapsed[,vars], by = study, missing = "no",
+                      statistic = list(all_continuous() ~ "{mean} ({sd})",
+                                       all_categorical() ~ "{n} ({p}%)")) %>%
+  add_overall() %>%
+  add_p() %>%
+  add_n(statistic = "{N_nonmiss}",col_label = "**N**",footnote = T,last = F)
+
+table1
+```
+
+### Descriptive vars by site
+
+```{r by_site}
+options(width = 999)
+
+bbs_site <- bbs[,c("studyId","site")]
+bbs_site <- unique(bbs_site)
+bbs_wide_site <- merge(bbs_wide_collapsed, bbs_site, by.y = "studyId", by.x = "studyid")
+vars <- c("Sex","Age (years)","Ethnicity", "Diabetes status", "Baseline weight (kg)", "Op day weight (kg)", "End weight (kg)",
+          "Baseline BMI (kg/m^2)","End BMI (kg/m^2)", "Diabetes duration","Time between baseline sample collection and surgery (months)",
+          "Time between baseline and 36-month sample collection (months)",
+          "Time between surgery and 36-month sample collection (months)","Baseline HbA1c (mmol/mol)","End HbA1c (mmol/mol)","study","site")
+
+table1 <- tbl_summary(bbs_wide_site[,vars], by = site, missing = "no",
+                      statistic = list(all_continuous() ~ "{mean} ({sd})",
+                                       all_categorical() ~ "{n} ({p}%)")) %>%
+  #add_p() %>%
+  add_n(statistic = "{N_nonmiss}",col_label = "**N**",footnote = T,last = F)
+
+table1
+```
+
+### Explore pairs
+We have 1608 samples from 1194 participants.
+There should be 414 pairs among the samples (369 main plus 45 substudy), according to what we sent off.
+
+```{r pairs}
+print(paste0("Number of duplicated study IDs in long df: ", sum(duplicated(bbs$studyId))))
+table(bbs$timepoint)
+baseline <- bbs[which(bbs$timepoint=="Baseline"),]
+end <- bbs[which(bbs$timepoint=="end"),]
+table(baseline$study)
+table(end$study)
+
+baseline_sub <- baseline[which(baseline$study=="substudy"),]
+end_sub <- end[which(end$study=="substudy"),]
+length(which(baseline_sub$studyId %in% end_sub$studyId))
+
+baseline_main <- baseline[which(baseline$study=="main"),]
+end_main <- end[which(end$study=="main"),]
+length(which(baseline_main$studyId %in% end_main$studyId))
+
+w <- which(baseline$studyId %in% end$studyId)
+pairs <- baseline[w,"studyId"]
+bbs_wide_pairs <- bbs_wide_site[which(bbs_wide_site$studyid %in% pairs),]
+
+table1 <- tbl_summary(bbs_wide_pairs[,vars], by = study, missing = "no",
+                      statistic = list(all_continuous() ~ "{mean} ({sd})",
+                                       all_categorical() ~ "{n} ({p}%)")) %>%
+  add_overall() %>%
+  #add_p() %>%
+  add_n(statistic = "{N_nonmiss}",col_label = "**N**",footnote = T,last = F)
+
+table1
+```
+
