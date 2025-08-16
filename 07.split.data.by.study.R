@@ -74,6 +74,10 @@ dim(bbs_sample_metadata) # 30 lost during filtering plus 142 site G outliers
 alspac_sample_metadata <- sampledata[sampledata$CLIENT_SAMPLE_ID %in% alspac_ids,]
 dim(alspac_sample_metadata) # 3 lost during filtering
 
+## tabulate numbers of samples at different timepoints
+for_summary <- bbs_sample_metadata
+for_summary$timepoint <- manifest$timepoint[match(for_summary$CLIENT_SAMPLE_ID, manifest$Client.Sample.ID.)]
+table(for_summary$timepoint)
 
 ### make new metabolite data
 # for bbs

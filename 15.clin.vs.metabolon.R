@@ -8,6 +8,7 @@
 # load libraries
 library(tidyverse)
 library(data.table)
+library(blandr)
 
 ## read in parameters
 source("parameter_files/15.parameters.R")
@@ -93,6 +94,7 @@ for (col in column_names) {
 }
 
 plot_list = list(glucose=NA, cholesterol=NA)
+plot_list_ba = list(glucose=NA, cholesterol=NA)
 
 cor_res_alspac <- cor.test(mydata[which(mydata$study=="ALSPAC"),"fastgluc"], mydata[which(mydata$study=="ALSPAC"),"compid_48152"], method = "pearson", use = "complete.obs")
 cor_res_bbs <- cor.test(mydata[which(mydata$study=="BBS"),"fastgluc"], mydata[which(mydata$study=="BBS"),"compid_48152"], method = "pearson", use = "complete.obs")
@@ -111,6 +113,10 @@ plot_list[["glucose"]] <- ggplot(mydata, aes(x=fastgluc, y=compid_48152)) +
             label = paste0("BBS r = ", round(cor_res_bbs$estimate,2), " (",round(cor_res_bbs$conf.int[1],2),", ",round(cor_res_bbs$conf.int[2],2),")"),
             size = 3.5)
 
+blandr_out <- blandr.statistics(scale(mydata[which(mydata$study=="ALSPAC"),"fastgluc"]), scale(mydata[which(mydata$study=="ALSPAC"),"compid_48152"]), sig.level = 0.95, LoA.mode = 1)
+blandr_out
+plot_list_ba[["glucose"]] <- blandr.plot.ggplot(blandr_out, method1name = "clinical", method2name = "MS", 
+                                                   plotTitle= "A: Glucose")
 
 cor_res_alspac <- cor.test(mydata[which(mydata$study=="ALSPAC"),"chol"], mydata[which(mydata$study=="ALSPAC"),"compid_63"], method = "pearson", use = "complete.obs")
 cor_res_bbs <- cor.test(mydata[which(mydata$study=="BBS"),"chol"], mydata[which(mydata$study=="BBS"),"compid_63"], method = "pearson", use = "complete.obs")
@@ -129,9 +135,12 @@ plot_list[["cholesterol"]] <- ggplot(mydata, aes(x=chol, y=compid_63)) +
             label = paste0("BBS r = ", round(cor_res_bbs$estimate,2), " (",round(cor_res_bbs$conf.int[1],2),", ",round(cor_res_bbs$conf.int[2],2),")"),
             size = 3.5)
 
-
+blandr_out <- blandr.statistics(scale(mydata[which(mydata$study=="ALSPAC"),"chol"]), scale(mydata[which(mydata$study=="ALSPAC"),"compid_63"]), sig.level = 0.95, LoA.mode = 1)
+blandr_out
+plot_list_ba[["cholesterol"]] <- blandr.plot.ggplot(blandr_out, method1name = "clinical", method2name = "MS", 
+                                                plotTitle= "B: Cholesterol")
 # save out plots and table
-filename = paste0(fig_dir,"Fig3ab_assay_comparison.pdf")
+filename = paste0(fig_dir,"FigS1ab_assay_comparison.pdf")
 outputfig <- ggpubr::ggarrange(plotlist=plot_list,
                                ncol=2, nrow=2,
                                common.legend = T,
@@ -140,6 +149,14 @@ outputfig <- ggpubr::ggarrange(plotlist=plot_list,
                                widths = 2)
 ggpubr::ggexport(outputfig, filename=filename)
 
+filename = paste0(fig_dir,"Fig3ab_assay_comparison.pdf")
+outputfig <- ggpubr::ggarrange(plotlist=plot_list_ba,
+                               ncol=2, nrow=2,
+                               common.legend = T,
+                               legend="top",
+                               heights = 2,
+                               widths = 2)
+ggpubr::ggexport(outputfig, filename=filename)
 
 # get N numbers for each comparison
 na <- colSums(is.na(mydata[,c("fastgluc","compid_48152","chol","compid_63")]))

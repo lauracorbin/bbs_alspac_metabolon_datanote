@@ -1,5 +1,5 @@
 ### this script is to compare clinical assay results to metabolon data
-### created by Maddy Smith 2023-06-20
+### created by Maddy Smith 
 
 ####################
 ###### SET UP ######
@@ -23,6 +23,7 @@ library(gtools)
 library(qqman)
 library(lmtest)
 library(stats)
+library(blandr)
 
 ##############################################################################
 ################################ READ IN DATA ################################
@@ -30,7 +31,6 @@ library(stats)
 
 # read in dataset list
 load(paste0(bbs_dir, "intermediate/01_dataset_list.RData"))
-
 
 ##############################################################################
 ###################### COMPARE CLINIC TO METABOLON ###########################
@@ -68,6 +68,7 @@ for (col in column_names) {
 
 ## now recreate scatter plots
 plot_list = list(urea=NA, creatinine=NA, bilirubin=NA)
+plot_list_ba = list(urea=NA, creatinine=NA, bilirubin=NA)
 
 ## correlations
 correlations <- as.data.frame(matrix(nrow=5, ncol = 2), row.names = names(plot_list))
@@ -88,6 +89,11 @@ plot_list[["urea"]] <- ggplot(metabolon_clinic, aes(x=urea, y=compid_1670)) +
         panel.grid = element_line(color = "lightgray", linewidth = 0.2))+
   annotate("text", x = 5, y = 3.5, label = paste0("r = ", round(correlations["urea","pearson"],2), " (",round(cor_res$conf.int[1],2),", ",round(cor_res$conf.int[2],2),")"), size = 3.5)
 
+blandr_out <- blandr.statistics(scale(metabolon_clinic$urea), scale(metabolon_clinic$compid_1670), sig.level = 0.95, LoA.mode = 1)
+blandr_out
+plot_list_ba[["urea"]] <- blandr.plot.ggplot(blandr_out, method1name = "clinical", method2name = "MS", 
+                                                plotTitle= "C: Urea")
+
 cor_res <- cor.test(metabolon_clinic$creat, metabolon_clinic$compid_513, method = "pearson", use = "complete.obs")
 plot_list[["creatinine"]] <- ggplot(metabolon_clinic, aes(x=creat, y=compid_513)) +
   geom_point(aes(x=creat, y=compid_513)) +
@@ -96,6 +102,11 @@ plot_list[["creatinine"]] <- ggplot(metabolon_clinic, aes(x=creat, y=compid_513)
   theme(panel.background = element_blank(),panel.border = element_rect(color = "black", fill = NA),
         panel.grid = element_line(color = "lightgray", linewidth = 0.2))+
   annotate("text", x = 50, y = 2, label = paste0("r = ", round(correlations["creatinine","pearson"],2), " (",round(cor_res$conf.int[1],2),", ",round(cor_res$conf.int[2],2),")"), size = 3.5)
+
+blandr_out <- blandr.statistics(scale(metabolon_clinic$urea), scale(metabolon_clinic$compid_513), sig.level = 0.95, LoA.mode = 1)
+blandr_out
+plot_list_ba[["creatinine"]] <- blandr.plot.ggplot(blandr_out, method1name = "clinical", method2name = "MS", 
+                                             plotTitle= "D: Creatinine")
 
 cor_res <- cor.test(metabolon_clinic$bili, metabolon_clinic$compid_43807, method = "pearson", use = "complete.obs")
 plot_list[["bilirubin"]] <- ggplot(metabolon_clinic, aes(x=bili, y=compid_43807)) +
@@ -106,10 +117,23 @@ plot_list[["bilirubin"]] <- ggplot(metabolon_clinic, aes(x=bili, y=compid_43807)
         panel.grid = element_line(color = "lightgray", linewidth = 0.2))+
   annotate("text", x = 10, y = 4, label = paste0("r = ", round(correlations["bilirubin","pearson"],2), " (",round(cor_res$conf.int[1],2),", ",round(cor_res$conf.int[2],2),")"), size = 3.5)
 
+blandr_out <- blandr.statistics(scale(metabolon_clinic$bili), scale(metabolon_clinic$compid_43807), sig.level = 0.95, LoA.mode = 1)
+blandr_out
+plot_list_ba[["bilirubin"]] <- blandr.plot.ggplot(blandr_out, method1name = "clinical", method2name = "MS", 
+                                                   plotTitle= "E: Bilirubin")
 
 # save out plots and table
-filename = paste0(fig_dir,"Fig3cde_assay_comparison.pdf")
+filename = paste0(fig_dir,"FigS1cde_assay_comparison.pdf")
 outputfig <- ggpubr::ggarrange(plotlist=plot_list,
+                               ncol=2, nrow=2,
+                               common.legend = T,
+                               legend="top",
+                               heights = 2,
+                               widths = 2)
+ggpubr::ggexport(outputfig, filename=filename)
+
+filename = paste0(fig_dir,"Fig3cde_assay_comparison.pdf")
+outputfig <- ggpubr::ggarrange(plotlist=plot_list_ba,
                                ncol=2, nrow=2,
                                common.legend = T,
                                legend="top",

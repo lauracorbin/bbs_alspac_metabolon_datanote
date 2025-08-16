@@ -45,6 +45,8 @@ library(gtools)
 library(qqman)
 library(ggpubr)
 library(ggrepel)
+library(blandr)
+
 ```
 
 
@@ -351,8 +353,16 @@ r_df <- data.frame(metabolite = character(),
                    p = numeric(),
                            stringsAsFactors = FALSE)
 
+
 # Define a vector of metabolite names
 metabolite_names <- colnames(new_raw[,which(grepl( "compid" , names(new_raw))==TRUE)])
+
+# empty list for ba plots
+plot_list_ba = list()
+# collect metab names that dont run in comparison (ebcause only exit in one dataset)
+missing_metabs <- c()
+count_missing <- 0
+count_present <- 0
 
 # Loop over metabolite names
 for (metabolite in metabolite_names) {
@@ -362,16 +372,28 @@ for (metabolite in metabolite_names) {
   
   # Check if there are two columns with the same name
   if (ncol(dat_metabolite) == 2 & nrow(dat_metabolite)>=3) {
+    count_present = count_present + 1
     
     # Calculate correlation coefficient
     r <- cor.test(dat_metabolite[, 1], dat_metabolite[, 2], method = "spearman")
     
     # Add results to dataframe
     r_df <- rbind(r_df, data.frame(metabolite = metabolite, n = nrow(dat_metabolite), r = r$estimate, p = r$p.value))
+    
+    # bland-altman
+    blandr_out <- blandr.statistics(scale(dat_metabolite[, 1]), scale(dat_metabolite[, 2]), sig.level = 0.95, LoA.mode = 1)
+    blandr_out
+    plot_list_ba[[metabolite]] <- blandr.plot.ggplot(blandr_out, method1name = "1", method2name = "2", 
+                                                plotTitle= paste0(metabolite))
+
+  }
+  else {
+    count_missing = count_missing + 1
+    missing_metabs[count_missing] <- metabolite
   }
 }
 
-# View distribution
+# View distribution of r
 pdf(file = paste0(fig_dir, "Fig4_raw_spearmans_R_histogram.pdf"))
 hist(r_df$r, breaks = 30, xlab = "Spearman's correlation coefficient (r)", ylab = "Number of metabolites", main = "")
 abline(v = median(r_df$r),                     # Add line for median
@@ -390,6 +412,24 @@ table(r_df_features[which(r_df_features$r<0.5),"SUPER_PATHWAY"])
 # calculate missingness for each metab
 r_df_features$missing <- ((250-r_df_features$n)/250)*100
 write.csv(r_df_features, file = paste0(table_dir, "TableS1_pilot_compare.csv"), row.names = F)
+
+print("Number of metabolites compared:")
+length(plot_list_ba)
+
+print("Number of metabolites not compared:")
+length(missing_metabs)
+
+print("total number of metabolites:")
+length(metabolite_names)
+
+filename = paste0(fig_dir,"FigS2_assay_comparison.pdf")
+outputfig <- ggpubr::ggarrange(plotlist=plot_list_ba,
+                               ncol=2, nrow=3,
+                               common.legend = T,
+                               legend="top",
+                               heights = 2,
+                               widths = 2)
+ggpubr::ggexport(outputfig, filename=filename)
 ```
 
 
