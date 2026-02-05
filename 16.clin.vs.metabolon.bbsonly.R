@@ -132,14 +132,14 @@ outputfig <- ggpubr::ggarrange(plotlist=plot_list,
                                widths = 2)
 ggpubr::ggexport(outputfig, filename=filename)
 
-filename = paste0(fig_dir,"Fig3cde_assay_comparison.pdf")
+filename = paste0(fig_dir,"Fig3cde_assay_comparison.jpeg")
 outputfig <- ggpubr::ggarrange(plotlist=plot_list_ba,
                                ncol=2, nrow=2,
                                common.legend = T,
                                legend="top",
                                heights = 2,
                                widths = 2)
-ggpubr::ggexport(outputfig, filename=filename)
+ggpubr::ggexport(outputfig, filename=filename,dpi=600)
 
 ## correlations
 correlations <- as.data.frame(matrix(nrow=3, ncol = 2), row.names = names(plot_list))

@@ -18,7 +18,7 @@ This repository contains code used to process the By-Band-Sleeve and ALSPAC Meta
 
 7) _07.split.data.by.study.R_ - contains code to read in output from (5) and (6) and generate BBS only and ALSPAC only datasets.  
 
-8) _08.run.metaboprep.step4.sh_ - contains code to run _metaboprep_ pipeline on each of the three datasets: BBS (_parameter\_file\_get\_sumstats\_bbs.txt_), ALSPAC (_parameter\_file\_get\_sumstats\_alspac.txt_), BBS & ALSPAC (_parameter\_file\_get\_sumstats.txt_)). Calls the _run\_metaboprep\_pipeline.R_ script.  
+8) _08.build.datasets.R_ - contains code to run _metaboprep_ pipeline on each of the three datasets: BBS, ALSPAC, BBS & ALSPAC. Also produces datasets and associated dictionaries for sharing in OSF. Output: html report from _metaboprep_ (v2) and data dictionary for each of the three datasets.
 
 9) _09.DataSetSplittingNormalization.Rmd_ - script written by David Hughes to explore the impact of normalizing the whole dataset versus normalizing within study (BBS main, BBS sub-study, ALSPAC). 
 
@@ -51,4 +51,5 @@ clinical\_data\_prep:
 5) 04.explore.bbs.clinical.data.Rmd - summarises clinical data for datanote.
 
 parameter\_file\_* - parameter files for running _metaboprep_.
+
 

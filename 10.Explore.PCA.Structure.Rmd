@@ -105,7 +105,7 @@ qc_data$sample_data %>% ggplot(aes(x = PC1, y = PC2)) +
   geom_point( aes(fill = site ), shape = 21, size = 4, alpha = 0.7 ) +
   theme_bw() +
   labs(fill = "Site", x = xl, y = yl)
-ggsave(paste0(fig_dir,"Fig2_PC_structure.pdf"))
+ggsave(paste0(fig_dir,"Fig2_PC_structure.jpeg"),dpi=600)
 ```
 
 

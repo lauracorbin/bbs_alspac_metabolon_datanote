@@ -1,5 +1,5 @@
-### script to analyse the clinical glucose and cholesterol data (compare to Metabolon) for data note ###
-### combine with the plots that have the BBS only metab/clin comparisons
+### script to analyse the @30 glucose and cholesterol data (compare to Metabolon) for data note ###
+### combine with the plots that have the BBS metab/clin comparisons
 
 ####################
 ###### SET UP ######
@@ -32,6 +32,11 @@ alspac$alnqlet <- paste0(alspac$aln,alspac$qlet)
 # read in bbs data
 load(paste0(bbs_dir, "intermediate/01_dataset_list.RData"))
 bbs_metabolon <- dataset_list$raw
+
+# check sample list of build dataset i am using matches latest
+new_bbs_metabolon <- read.table(paste0(bbs_dir_updated),h=T,sep="\t")
+length(which(new_bbs_metabolon$sample_id %in% bbs_metabolon$PARENT_SAMPLE_NAME))
+length(which(!new_bbs_metabolon$sample_id %in% bbs_metabolon$PARENT_SAMPLE_NAME))
 
 # read in clinical bloods
 bbs_clinic <- read.csv(paste0(clinical_data_input_dir, "01_clinical_data_bbsmain_long.csv"))
@@ -149,14 +154,14 @@ outputfig <- ggpubr::ggarrange(plotlist=plot_list,
                                widths = 2)
 ggpubr::ggexport(outputfig, filename=filename)
 
-filename = paste0(fig_dir,"Fig3ab_assay_comparison.pdf")
+filename = paste0(fig_dir,"Fig3ab_assay_comparison.jpeg")
 outputfig <- ggpubr::ggarrange(plotlist=plot_list_ba,
                                ncol=2, nrow=2,
                                common.legend = T,
                                legend="top",
                                heights = 2,
                                widths = 2)
-ggpubr::ggexport(outputfig, filename=filename)
+ggpubr::ggexport(outputfig, filename=filename,dpi=600)
 
 # get N numbers for each comparison
 na <- colSums(is.na(mydata[,c("fastgluc","compid_48152","chol","compid_63")]))

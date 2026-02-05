@@ -50,107 +50,7 @@ library(blandr)
 ```
 
 
-```{r read in results, echo=FALSE}
-old <- readRDS(file=paste0(siteB_dir,"05_mixed_results.rds"))
-old <- old$rnt_imputed_adj_as$metabolon
-new <- readRDS(file=paste0(results_output_dir, "05_mixed_results.rds"))
-new <- new$rnt_imputed_adj_as
-  
-results <- list(old=old, new=new)
-
-# read in feature data and median fold change results
-feature_data <- read.csv(paste0(data_input_dir,"bbs_alspac_outliers_removed_2025_04_04_Metabolon_featuredata.txt"), sep = "\t", header=T)
-
-# remove unwanted columns - only keep n, beta, se, p
-for (i in 1:length(results)) {
-    n_col <- colnames(results[[i]])[(which(grepl("n_", colnames(results[[i]]))==T))]
-    beta_col <- colnames(results[[i]])[(which(grepl("beta_", colnames(results[[i]]))==T))]
-    se_col <- colnames(results[[i]])[(which(grepl("se_", colnames(results[[i]]))==T))]
-    p_col <- "P_mixed"
-    results[[i]] <- results[[i]][,c(n_col,beta_col,se_col,p_col)]
-  }
-
-
-# merge in feature data to each set of results
-for (i in 1:length(results)) {
-    results[[i]] <- merge(results[[i]], feature_data, by.y = "feature_names", by.x = "row.names", sort = F)
-  }
-```
-
-### top 10 table, volcano plot & scatters comparing betas and p-vals
-#### 1. Old siteB data
-#### 2. New siteB data
-```{r summary loop, echo=FALSE, eval=TRUE}
-options(width = 250)
-for (i in 1:length(results)) {
-  print(names(results)[i])
-    # top 10 hits
-    n_col <- colnames(results[[i]])[(which(grepl("n_", colnames(results[[i]]))==T))]
-    beta_col <- colnames(results[[i]])[(which(grepl("beta_", colnames(results[[i]]))==T))]
-    se_col <- colnames(results[[i]])[(which(grepl("se_", colnames(results[[i]]))==T))]
-    p_col <- colnames(results[[i]])[(which(grepl("P_", colnames(results[[i]]))==T))]
-    print(head(results[[i]][,c("Row.names", n_col, beta_col, se_col, p_col, "SUPER_PATHWAY", "SUB_PATHWAY", "PLOT_NAME")], 10))
-    # volcano
-    p_col <- results[[i]][(which(grepl("P_", colnames(results[[i]]))==T))]
-    p_col <- unlist(p_col)
-    volcano <- ggplot(data=results[[i]], 
-                  aes(x=beta_mixed, y=-1*log10(p_col), col=SUPER_PATHWAY)) + 
-    geom_point() +
-    theme_minimal() + 
-    geom_vline(xintercept=0, col="red") +
-    geom_hline(yintercept=-log10(0.05/446), col="red") + 
-    xlab("beta") +
-    ylab(expression("-log"[10]*"(p-value)"))
-    print(volcano)
-    
-    # comparison scatters - compare best (2) with new (1)
-    if (i==1) {
-      # make temp df of betas
-      compare_beta <- as.data.frame(matrix(nrow = nrow(feature_data)))
-      rownames(compare_beta) <- feature_data$feature_names
-      compare_beta <- merge(compare_beta, results[[1]], by.x = "row.names", by.y = "Row.names")[,c("Row.names","beta_mixed")]
-      colnames(compare_beta)[2] <- paste0(names(results[1]), ".rnt_imputed_adj_as")
-      compare_beta <- merge(compare_beta, results[[2]], by = "Row.names")[,c("Row.names", "old.rnt_imputed_adj_as", "beta_mixed")]
-      colnames(compare_beta)[3] <- paste0(names(results[2]), ".rnt_imputed_adj_as")
-      # scatter plot of betas
-      lm_b <- summary(lm(data=compare_beta, new.rnt_imputed_adj_as ~ old.rnt_imputed_adj_as))
-      p1 <- ggplot(compare_beta, aes( x = old.rnt_imputed_adj_as, y = new.rnt_imputed_adj_as )) +
-        geom_point(size = 1.5) +
-        geom_smooth(method = 'lm', formula = y ~ x) +
-        theme(axis.text=element_text(size=10), axis.title=element_text(size=12,face="bold")) +
-        geom_label_repel(aes(label = ifelse((new.rnt_imputed_adj_as<(-0.7) & old.rnt_imputed_adj_as>0.2), Row.names, "")), size = 3) +
-        xlim(-2, 2) + ylim(-2,2) +
-        xlab(names(results[1])) + ylab(names(results[2])) +
-        annotate("text", x = -1, y = 1.6, label = (paste0("R^2 = ", lm_b$adj.r.squared)), size = 5) +
-        ggtitle("betas")
-      print(p1)
-      print("compid_36803 is 3beta,7alpha-dihydroxy-5-cholestenoate, a sterol (lipid superpathway), not associated with surgery in either new or old dataset")
-      # make temp df of p-vals
-      compare_p <- as.data.frame(matrix(nrow = nrow(feature_data)))
-      rownames(compare_p) <- feature_data$feature_names
-      compare_p <- merge(compare_p, results[[1]], by.x = "row.names", by.y = "Row.names")[,c("Row.names","P_mixed")]
-      colnames(compare_p)[2] <- paste0(names(results[1]), ".rnt_imputed_adj_as")
-      compare_p <- merge(compare_p, results[[2]], by = "Row.names")[,c("Row.names", "old.rnt_imputed_adj_as", "P_mixed")]
-      colnames(compare_p)[3] <- paste0(names(results[2]), ".rnt_imputed_adj_as")
-      # scatter plot of ps
-      lm_p <- summary(lm(data=compare_p, new.rnt_imputed_adj_as ~ old.rnt_imputed_adj_as))
-      p1 <- ggplot(compare_p, aes( x = -1*log10(old.rnt_imputed_adj_as), y = -1*log10(new.rnt_imputed_adj_as) )) +
-        geom_point(size = 1.5) +
-        geom_smooth(method = 'lm', formula = y ~ x) +
-        theme(axis.text=element_text(size=10), axis.title=element_text(size=12,face="bold")) +
-        xlab(names(results[1])) + ylab(names(results[2])) +
-        annotate("text", x = 5, y = 11, label = (paste0("R^2 = ", lm_p$adj.r.squared)), size = 5) +
-        ggtitle("-1*log10(p-val)")
-      print(p1)
-    }
-}
-
-```
-
-
-#### Some of the differences in the top 10s are valine, glycine, 3-methyl-2-oxobutyrate, oleoyl choline, citrulline
-#### Let's look at the raw data for these metabs...
-```{r compare raw data, echo=FALSE}
+```{r compare raw data, echo=FALSE, eval=TRUE}
 # read in the two datasets to compare the raw data for some metabs - can compare raw and rnt'd
 # new data
 load(paste0(data_output_dir, "intermediate/01_dataset_list.RData"))
@@ -164,6 +64,16 @@ for (i in 1:length(dataset_list)) {
 new_raw <- dataset_list$raw
 new_rnt <- dataset_list$rnt_raw
 
+# restrict to features included in latest QC (extra 77 removed for low N)
+feature_data <- read.csv(feature_metadata_file,h=T,sep="\t")
+compids_to_keep <- (which(names(new_raw) %in% feature_data$feature_id))
+new_raw <- new_raw[,c(1:54,compids_to_keep)]
+dim(new_raw)
+
+compids_to_keep <- (which(names(new_rnt) %in% feature_data$feature_id))
+new_rnt <- new_rnt[,c(1:54,compids_to_keep)]
+dim(new_rnt)
+
 # old data
 old <- readRDS(file=paste0(old_siteB_dir,"01_dataset_list.rds"))
 old_raw <- old$raw$metabolon
@@ -175,168 +85,7 @@ old_rnt$Visit.Identifier <- gsub("36 months", "end", old_rnt$Visit.Identifier)
 old_raw$id_timepoint <- paste0(old_raw$Study.Identifier, "_", old_raw$Visit.Identifier)
 old_rnt$id_timepoint <- paste0(old_rnt$Study.Identifier, "_", old_rnt$Visit.Identifier)
 
-# now create temp dfs to allow comparison of selected metabs
-## VALINE - compid_1649
-compare_valine_raw <- merge(new_raw[,c("id_timepoint","compid_1649")], old_raw[,c("id_timepoint","compid_1649")], by = "id_timepoint")
-compare_valine_rnt <- merge(new_rnt[,c("id_timepoint","compid_1649")], old_rnt[,c("id_timepoint","compid_1649")], by = "id_timepoint")
 
-lm_val <- summary(lm(data=compare_valine_raw, compid_1649.x ~ compid_1649.y))
-p1 <- ggplot(compare_valine_raw, aes( x = compid_1649.x, y = compid_1649.y) ) +
-    geom_point(size = 1.5) +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    theme(axis.text=element_text(size=10), axis.title=element_text(size=12,face="bold")) +
-    xlab("new") + ylab("old") +
-    annotate("text", x = 1, y = 2, label = (paste0("R^2 = ", lm_val$adj.r.squared)), size = 5) +
-    ggtitle("valine_raw")
-print(p1)
-
-lm_val <- summary(lm(data=compare_valine_rnt, compid_1649.x ~ compid_1649.y))
-p1 <- ggplot(compare_valine_rnt, aes( x = compid_1649.x, y = compid_1649.y) ) +
-    geom_point(size = 1.5) +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    theme(axis.text=element_text(size=10), axis.title=element_text(size=12,face="bold")) +
-    xlab("new") + ylab("old") +
-    annotate("text", x = -1, y = 2.5, label = (paste0("R^2 = ", lm_val$adj.r.squared)), size = 5) +
-    ggtitle("valine_rnt")
-print(p1)
-
-
-## 3-methyl-2-oxybutyrate - compid_44526
-compare_3methox_raw <- merge(new_raw[,c("id_timepoint","compid_44526")], old_raw[,c("id_timepoint","compid_44526")], by = "id_timepoint")
-compare_3methox_rnt <- merge(new_rnt[,c("id_timepoint","compid_44526")], old_rnt[,c("id_timepoint","compid_44526")], by = "id_timepoint")
-
-lm_3m <- summary(lm(data=compare_3methox_raw, compid_44526.x ~ compid_44526.y))
-p1 <- ggplot(compare_3methox_raw, aes( x = compid_44526.x, y = compid_44526.y) ) +
-    geom_point(size = 1.5) +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    theme(axis.text=element_text(size=10), axis.title=element_text(size=12,face="bold")) +
-    xlab("new") + ylab("old") +
-    annotate("text", x = 1, y = 2, label = (paste0("R^2 = ", lm_3m$adj.r.squared)), size = 5) +
-    ggtitle("3methox_raw")
-print(p1)
-
-lm_3m <- summary(lm(data=compare_3methox_rnt, compid_44526.x ~ compid_44526.y))
-p1 <- ggplot(compare_3methox_rnt, aes( x = compid_44526.x, y = compid_44526.y) ) +
-    geom_point(size = 1.5) +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    theme(axis.text=element_text(size=10), axis.title=element_text(size=12,face="bold")) +
-    xlab("new") + ylab("old") +
-    annotate("text", x = -0.5, y = 2.5, label = (paste0("R^2 = ", lm_3m$adj.r.squared)), size = 5) +
-    ggtitle("3methox_rnt")
-print(p1)
-
-
-## GLYCINE - compid_58
-compare_glycine_raw <- merge(new_raw[,c("id_timepoint","compid_58")], old_raw[,c("id_timepoint","compid_58")], by = "id_timepoint")
-compare_glycine_rnt <- merge(new_rnt[,c("id_timepoint","compid_58")], old_rnt[,c("id_timepoint","compid_58")], by = "id_timepoint")
-
-lm_gly <- summary(lm(data=compare_glycine_raw, compid_58.x ~ compid_58.y))
-p1 <- ggplot(compare_glycine_raw, aes( x = compid_58.x, y = compid_58.y) ) +
-    geom_point(size = 1.5) +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    theme(axis.text=element_text(size=10), axis.title=element_text(size=12,face="bold")) +
-    xlab("new") + ylab("old") +
-    annotate("text", x = 1, y = 2, label = (paste0("R^2 = ", lm_gly$adj.r.squared)), size = 5) +
-    ggtitle("glycine_raw")
-print(p1)
-
-lm_gly <- summary(lm(data=compare_glycine_rnt, compid_58.x ~ compid_58.y))
-p1 <- ggplot(compare_glycine_rnt, aes( x = compid_58.x, y = compid_58.y) ) +
-    geom_point(size = 1.5) +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    theme(axis.text=element_text(size=10), axis.title=element_text(size=12,face="bold")) +
-    xlab("new") + ylab("old") +
-    annotate("text", x = -1, y = 2.5, label = (paste0("R^2 = ", lm_gly$adj.r.squared)), size = 5) +
-    ggtitle("glycine_rnt")
-print(p1)
-
-
-## Oleoyl choline - compid_53260
-compare_ochol_raw <- merge(new_raw[,c("id_timepoint","compid_53260")], old_raw[,c("id_timepoint","compid_53260")], by = "id_timepoint")
-compare_ochol_rnt <- merge(new_rnt[,c("id_timepoint","compid_53260")], old_rnt[,c("id_timepoint","compid_53260")], by = "id_timepoint")
-
-lm_ochol <- summary(lm(data=compare_ochol_raw, compid_53260.x ~ compid_53260.y))
-p1 <- ggplot(compare_ochol_raw, aes( x = compid_53260.x, y = compid_53260.y) ) +
-    geom_point(size = 1.5) +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    theme(axis.text=element_text(size=10), axis.title=element_text(size=12,face="bold")) +
-    xlab("new") + ylab("old") +
-    annotate("text", x = 1, y = 2, label = (paste0("R^2 = ", lm_ochol$adj.r.squared)), size = 5) +
-    ggtitle("ochol_raw")
-print(p1)
-
-lm_ochol <- summary(lm(data=compare_ochol_rnt, compid_53260.x ~ compid_53260.y))
-p1 <- ggplot(compare_ochol_rnt, aes( x = compid_53260.x, y = compid_53260.y) ) +
-    geom_point(size = 1.5) +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    theme(axis.text=element_text(size=10), axis.title=element_text(size=12,face="bold")) +
-    xlab("new") + ylab("old") +
-    annotate("text", x = -1, y = 2.5, label = (paste0("R^2 = ", lm_ochol$adj.r.squared)), size = 5) +
-    ggtitle("ochol_rnt")
-print(p1)
-
-
-## citrulline - compid_2132
-compare_citrulline_raw <- merge(new_raw[,c("id_timepoint","compid_2132")], old_raw[,c("id_timepoint","compid_2132")], by = "id_timepoint")
-compare_citrulline_rnt <- merge(new_rnt[,c("id_timepoint","compid_2132")], old_rnt[,c("id_timepoint","compid_2132")], by = "id_timepoint")
-
-lm_cit <- summary(lm(data=compare_citrulline_raw, compid_2132.x ~ compid_2132.y))
-p1 <- ggplot(compare_citrulline_raw, aes( x = compid_2132.x, y = compid_2132.y) ) +
-    geom_point(size = 1.5) +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    theme(axis.text=element_text(size=10), axis.title=element_text(size=12,face="bold")) +
-    xlab("new") + ylab("old") +
-    annotate("text", x = 1, y = 2, label = (paste0("R^2 = ", lm_cit$adj.r.squared)), size = 5) +
-    ggtitle("citrulline_raw")
-print(p1)
-
-lm_cit <- summary(lm(data=compare_citrulline_rnt, compid_2132.x ~ compid_2132.y))
-p1 <- ggplot(compare_citrulline_rnt, aes( x = compid_2132.x, y = compid_2132.y) ) +
-    geom_point(size = 1.5) +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    theme(axis.text=element_text(size=10), axis.title=element_text(size=12,face="bold")) +
-    xlab("new") + ylab("old") +
-    annotate("text", x = -1, y = 2.5, label = (paste0("R^2 = ", lm_cit$adj.r.squared)), size = 5) +
-    ggtitle("citrulline_rnt")
-print(p1)
-```
-
-### Distribution of Rsqaured values from old ~ new lm
-```{r distribution of r-squareds, echo=FALSE}
-# merge new and old together
-dat <- merge(new_raw, old_raw, by = "id_timepoint", all.x = T)
-columns_with_metabolite_data <- which(grepl( "compid" , names(dat))==TRUE)
-dat <- dat[,c(1, columns_with_metabolite_data)]
-
-# extract the r-squared vals for each metabs
-# Define a vector of metabolite names
-metabolite_names <- colnames(new_raw[,which(grepl( "compid" , names(new_raw))==TRUE)])
-
-# Create an empty dataframe to store results
-rsquared_df <- data.frame(column_name = character(),
-                           rsquared = numeric(),
-                           stringsAsFactors = FALSE)
-
-# Loop over metabolite names
-for (metabolite in metabolite_names) {
-  
-  # Select data for the metabolite
-  dat_metabolite <- na.omit(dat[, grep(paste0(metabolite, "\\.[xy]$"), colnames(dat))])
-  
-  # Check if there are two columns with the same name
-  if (ncol(dat_metabolite) == 2 & nrow(dat_metabolite)>=1) {
-    
-    # Fit linear model and extract R-squared value
-    model <- lm(dat_metabolite[, 2] ~ dat_metabolite[, 1])
-    rsquared <- summary(model)$r.squared
-    
-    # Add results to dataframe
-    rsquared_df <- rbind(rsquared_df, data.frame(column_name = metabolite, rsquared = rsquared))
-  }
-}
-
-# View distribution
-hist(rsquared_df$rsquared, breaks = 30, main = "Histogram of R-squareds from lm(old_raw ~ new_raw)")
 ```
 
 
@@ -394,23 +143,37 @@ for (metabolite in metabolite_names) {
 }
 
 # View distribution of r
-pdf(file = paste0(fig_dir, "Fig4_raw_spearmans_R_histogram.pdf"))
-hist(r_df$r, breaks = 30, xlab = "Spearman's correlation coefficient (r)", ylab = "Number of metabolites", main = "")
-abline(v = median(r_df$r),                     # Add line for median
-       col = "red",
-       lwd = 3)
-dev.off()
+
+ggplot(r_df, aes(x=r)) + geom_histogram(bins = 30, fill="lightgray", colour="black") +
+  xlab("Spearman's correlation coefficient (r)") +
+  ylab("Number of metabolites") +
+  ggtitle("") +
+  geom_vline(xintercept = median(r_df$r), colour = "red",size=1) +
+  theme_classic() + # Start with a classic theme that removes gridlines
+  theme(
+    panel.background = element_blank(), # Remove panel background
+    panel.grid.major = element_blank(), # Remove major gridlines
+    panel.grid.minor = element_blank(), # Remove minor gridlines
+    axis.line = element_line(colour = "black"), # Add axis lines
+    axis.ticks = element_line(colour = "black"), # Add axis ticks
+    axis.text = element_text(color = "black"), # Black axis labels
+    axis.title = element_text(color = "black"), # Black axis titles
+    plot.background = element_blank(), # Remove plot background
+    legend.position = "none" # Remove legend if not needed
+  )
+ggsave(paste0(fig_dir, "Fig4_raw_spearmans_R_histogram.jpeg"), dpi=600)
+
 # save out r_df for the raw data - will use this to see if we trust the results for each metab
 write.csv(r_df, file = paste0(table_dir, "spearmans_correlation_results.csv"), row.names = F)
 
 # merge in the feature data
-r_df_features <- merge(r_df, feature_data, by.x = "metabolite", by.y = "feature_names")
+r_df_features <- merge(r_df, feature_data, by.x = "metabolite", by.y = "feature_id")
 # order by R
 r_df_features <- r_df_features[order(r_df_features$r),]
 # count the super pathways in those with R <5
 table(r_df_features[which(r_df_features$r<0.5),"SUPER_PATHWAY"])
 # calculate missingness for each metab
-r_df_features$missing <- ((250-r_df_features$n)/250)*100
+r_df_features$missing <- ((250-r_df_features$n.x)/250)*100
 write.csv(r_df_features, file = paste0(table_dir, "TableS1_pilot_compare.csv"), row.names = F)
 
 print("Number of metabolites compared:")
