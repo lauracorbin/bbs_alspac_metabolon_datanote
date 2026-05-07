@@ -21,7 +21,7 @@ log using "/REDACTED/working/results/metabolon/logs/13.prepare.alspacf30.release
 *** sample metadata & summary data combined
 
 * read in and convert labels
-import delimited "../metaboprep_output/2026_01_31_SampleMetadataDictionary.txt", delim("\t") clear
+import delimited "../metaboprep_output/2026_05_05_SampleMetadataDictionary.txt", delim("\t") clear
 replace variable_name = lower(variable_name)
 replace variable_name = "poslate" if variable_name == "pos.late"
 replace variable_name = "posearly" if variable_name == "pos.early"
@@ -42,7 +42,7 @@ forvalues i = 1/`N' {
 file close `fh'
 
 
-import delimited "../metaboprep_output/2026_01_31_SampleMetadata.txt", varnames(1) delim("\t") clear
+import delimited "../metaboprep_output/2026_05_05_SampleMetadata.txt", varnames(1) delim("\t") clear
 do my_labels.do
 rm my_labels.do
 
@@ -52,7 +52,7 @@ save "temp_SampleMetadata.dta", replace
 *** metabolite data
 
 * read in and convert labels
-import delimited "../metaboprep_output/2026_01_31_MetaboliteDataDictionary.txt", delim("\t") clear
+import delimited "../metaboprep_output/2026_05_05_MetaboliteDataDictionary.txt", delim("\t") clear
 
 tempname fh
 
@@ -68,7 +68,7 @@ forvalues i = 1/`N' {
 
 file close `fh'
 
-import delimited "../metaboprep_output/2026_01_31_MetaboliteData.txt", varnames(1) delim("\t") clear
+import delimited "../metaboprep_output/2026_05_05_MetaboliteData.txt", varnames(1) delim("\t") clear
 
 do my_labels.do
 rm my_labels.do
@@ -77,7 +77,7 @@ save "temp_MetaboliteData.dta", replace
 
 merge 1:1 sample_id using "temp_SampleMetadata.dta", nogenerate
 
-save "B4132_metabolite_data_20260131.dta", replace
+save "B4132_metabolite_data_20260505.dta", replace
 
 ****************************************************************************************************************
 
@@ -86,11 +86,11 @@ import delimited "../../../step2/alspac/excel/2025_04_04_alspac_metabolon_labids
 rename v1 client_sample_id
 save "complete_sample_list.dta", replace
 
-merge 1:1 client_sample_id using "B4132_metabolite_data_20260131.dta", nogenerate
+merge 1:1 client_sample_id using "B4132_metabolite_data_20260505.dta", nogenerate
 
 ****************************************************************************************************************
 
-save "B4132_metabolite_data_20260131.dta", replace
+save "B4132_metabolite_data_20260505.dta", replace
 
 ****************************************************************************************************************
 * delete temp files

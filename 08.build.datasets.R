@@ -251,11 +251,11 @@ bbs_sampleinfo_merged <- bbs_sampleinfo_merged[,c(1:5,23:37)]
 
 ## build dictionaries
 variable_labels <- c("Unique sample identifier (assigned by Metabolon)","Proportion of missing (NA) data (from metaboprep)", "total peak area (from metaboprep)",
-                    "Total peak area based on complete features only (from metaboprep)", "Number of outlying values (+/- 50 IQR from median) (from metaboprep)",
-                    "Batch identifiers for the neg platform", "Batch identifiers for the polar platform", "Batch identifiers for the pos.early platform",
-                    "Batch identifiers for the pos.late platform", "Shipment box number", "Sample type", "Sample_barcode", "Run order","Plate identifier",
-                    "Assigned plate number (36 per plate)", "Volume of material sent to Metabolon", "Units of volume", "Location in shipment box",
-                    "Volume of material extracted by Metabolon for analysis", "Within plate order")
+                     "Total peak area based on complete features only (from metaboprep)", "Number of outlying values (+/- 50 IQR from median) (from metaboprep)",
+                     "Batch identifiers for the neg platform", "Batch identifiers for the polar platform", "Batch identifiers for the pos.early platform",
+                     "Batch identifiers for the pos.late platform", "Shipment box number", "Sample type", "Sample_barcode", "Run order",
+                     "Assigned plate number (36 per plate)", "Volume of material sent to Metabolon", "Units of volume", "Location in shipment box",
+                     "Source study", "Volume of material extracted by Metabolon for analysis", "Within plate order")
 
 # all 
 all_sample_dictionary <- as.data.frame(names(all_sampleinfo_merged))
@@ -425,4 +425,4 @@ sessionInfo()
 sink()
 
 # remove data
-#rm(list = ls())
+rm(list = ls())
