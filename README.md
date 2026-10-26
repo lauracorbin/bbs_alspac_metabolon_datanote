@@ -2,6 +2,8 @@
 
 This repository contains code used to process the By-Band-Sleeve and ALSPAC Metabolon dataset and accompanies the datanote that describes the dataset creation (Untargeted metabolomics data in the By-Band-Sleeve trial and ALSPAC: integrating clinical trial and population cohort data').
 
+DOI for code: https://doi.org/10.5281/zenodo.20066635
+
 ## Code list
 
 1) _01.read.in.metabolon.new.R_ - contains and runs a function to read in new format Metabolon Excel files. Adapted from original Metabolon read in code contained in R package _metaboprep_ by Maddy Smith. Also, reinstates missing data points in volume normalised version of data.  
